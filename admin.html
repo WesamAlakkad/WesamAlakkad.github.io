@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <!-- منع عرض لوحة التحكم داخل إطار في موقع آخر (GitHub Pages لا يدعم ترويسات الحماية) -->
+  <style id="antiFrame">body { display: none !important; }</style>
+  <script>
+    if (self === top) document.getElementById("antiFrame").remove();
+    else top.location = self.location;
+  </script>
+  <title>لوحة التحكم | Portfolio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2310b9a4'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='%23061412' font-family='Arial' font-weight='700'%3EW%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <!-- ===== Setup notice ===== -->
+  <section class="center-screen" id="setupView" hidden>
+    <div class="auth-card wide">
+      <span class="brand-mark">W</span>
+      <h1>لوحة التحكم غير مُفعّلة بعد</h1>
+      <p>لم يتم ربط الموقع بـ Supabase. اتبع الخطوات في ملف <code>SETUP.md</code> ثم ضع الرابط والمفتاح في <code>config.js</code>.</p>
+      <ol class="steps">
+        <li>أنشئ مشروعاً مجانياً على <b dir="ltr">supabase.com</b></li>
+        <li>شغّل ملف <code>supabase/setup.sql</code> في SQL Editor</li>
+        <li>أنشئ مستخدم المدير من Authentication → Users</li>
+        <li>انسخ <span dir="ltr">Project URL</span> و<span dir="ltr">anon key</span> إلى <code>config.js</code></li>
+      </ol>
+      <a class="btn btn-ghost" href="?demo=1">جرّب اللوحة في الوضع التجريبي</a>
+    </div>
+  </section>
+
+  <!-- ===== Login ===== -->
+  <section class="center-screen" id="loginView" hidden>
+    <form class="auth-card" id="loginForm">
+      <span class="brand-mark">W</span>
+      <h1>تسجيل الدخول</h1>
+      <p>لوحة التحكم بالموقع الشخصي</p>
+      <label class="field">
+        <span>البريد الإلكتروني</span>
+        <input type="email" id="loginEmail" required autocomplete="username" dir="ltr" />
+      </label>
+      <label class="field">
+        <span>كلمة المرور</span>
+        <input type="password" id="loginPass" required autocomplete="current-password" dir="ltr" />
+      </label>
+      <p class="form-error" id="loginError" hidden></p>
+      <button class="btn btn-primary block" type="submit" id="loginBtn">دخول</button>
+      <a class="muted-link" href="index.html">← العودة للموقع</a>
+    </form>
+  </section>
+
+  <!-- ===== Dashboard ===== -->
+  <div class="app" id="appView" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="side-brand">
+        <span class="brand-mark">W</span>
+        <div><b>لوحة التحكم</b><small id="userEmail"></small></div>
+      </div>
+      <nav class="side-nav" id="sideNav"></nav>
+      <div class="side-foot">
+        <a class="side-link" href="index.html" target="_blank" rel="noopener">↗ عرض الموقع</a>
+        <button class="side-link" id="logoutBtn" type="button">⎋ تسجيل الخروج</button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menuBtn" aria-label="القائمة">☰</button>
+        <div class="tb-title">
+          <h2 id="panelTitle"></h2>
+          <p id="panelDesc"></p>
+        </div>
+        <span class="demo-badge" id="demoBadge" hidden>وضع تجريبي</span>
+        <span class="dirty" id="dirtyFlag" hidden>● تغييرات غير محفوظة</span>
+        <button class="btn btn-primary" id="saveBtn" type="button">حفظ التغييرات</button>
+      </header>
+
+      <main class="panel" id="panel"></main>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="js/default-content.js"></script>
+  <script src="js/data.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
