@@ -413,7 +413,12 @@ mark { background: var(--accent-soft); color: var(--accent); padding: 0 6px; bor
   .tl-dot { right: -26px; }
   .stat { padding: 20px 16px; }
   .stat .num, .stat .plus { font-size: 1.9rem; }
-  .code-card { display: none; }
+  /* على الهاتف: البطاقة تحت الصورة بدل أن تطفو فوقها، وبخط أصغر */
+  .code-card {
+    position: relative; bottom: auto; left: auto; margin-top: 4px;
+    max-width: calc(100vw - 32px); overflow-x: auto;
+    padding: 10px 14px; border-radius: 12px; font-size: 0.68rem;
+  }
   .chip { font-size: 0.72rem; padding: 5px 10px; }
   .c2 { left: 0; }
   .edu-card { flex-wrap: wrap; }
