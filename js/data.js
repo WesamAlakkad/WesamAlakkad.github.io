@@ -78,7 +78,71 @@ window.SiteData = (() => {
     if (error) throw error;
   }
 
-  return { client, configured, bucket, clone, merge, loadContent, saveContent, loadGallery, uploadFile, removeFile, publicUrl };
+  // ---------- عدّاد الزيارات ----------
+  // بلا Cookies وبلا عنوان IP: معرّف عشوائي في المتصفح + المصدر + نوع الجهاز + المنطقة الزمنية
+  const store = {
+    get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+    del: (k) => { try { localStorage.removeItem(k); } catch {} },
+  };
+  const SESSION_MS = 30 * 60 * 1000;
+
+  const isExcluded = () => store.get("v_exclude") === "1";
+  const setExcluded = (on) => (on ? store.set("v_exclude", "1") : store.del("v_exclude"));
+
+  async function trackVisit() {
+    if (!client) return;
+    try {
+      const host = location.hostname;
+      if (!host || host === "localhost" || host === "127.0.0.1" || location.protocol === "file:") return;
+      if (navigator.webdriver || /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|linkedin|discord/i.test(navigator.userAgent)) return;
+      const params = new URLSearchParams(location.search);
+      if (params.has("notrack")) setExcluded(true);
+      if (isExcluded()) return;
+
+      // تحديثات الصفحة خلال نصف ساعة تُعدّ زيارة واحدة
+      const now = Date.now();
+      const last = +store.get("v_last") || 0;
+      store.set("v_last", String(now));
+      if (now - last < SESSION_MS) return;
+
+      let id = store.get("v_id");
+      if (!id) {
+        id = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + now.toString(36));
+        store.set("v_id", id);
+      }
+      // ?ref=cv في الرابط يحدد المصدر يدوياً (مفيد لرابط السيرة الذاتية مثلاً)
+      let source = params.get("ref") || params.get("utm_source") || "";
+      if (!source && document.referrer) {
+        try {
+          const r = new URL(document.referrer);
+          if (r.hostname !== host) source = r.hostname.replace(/^www\./, "");
+        } catch {}
+      }
+      const ua = navigator.userAgent;
+      const device = /iPad|Tablet/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua)) ? "tablet"
+        : /Mobi|Android|iPhone/i.test(ua) ? "mobile" : "desktop";
+
+      await client.from("visits").insert({
+        visitor: id.slice(0, 40),
+        source: source.slice(0, 100),
+        device,
+        lang: (navigator.language || "").slice(0, 20),
+        tz: (Intl.DateTimeFormat().resolvedOptions().timeZone || "").slice(0, 60),
+      });
+    } catch {
+      // الإحصائيات يجب ألا تعطل الموقع أبداً
+    }
+  }
+
+  async function visitCount() {
+    if (!client) return null;
+    const { data, error } = await client.rpc("visit_count");
+    return error ? null : data;
+  }
+
+  return { client, configured, bucket, clone, merge, loadContent, saveContent, loadGallery, uploadFile, removeFile, publicUrl,
+    trackVisit, visitCount, isExcluded, setExcluded };
 })();
 
 // تحويل النص البسيط إلى HTML آمن: **غامق** و ==مظلل==

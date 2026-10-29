@@ -94,6 +94,7 @@
   const catOptions = () => (content.projectCategories || []).map((c) => [c.key, c.label || c.key]);
 
   const PANELS = [
+    { id: "stats", icon: "📈", title: "الإحصائيات", desc: "زيارات موقعك ومن أين جاء الزوار", custom: renderStats },
     {
       id: "hero", icon: "🏠", title: "الواجهة الرئيسية", desc: "أول ما يراه الزائر: الاسم، التعريف، الصورة والأرقام",
       cards: [
@@ -447,7 +448,7 @@
   }
 
   function go(id) {
-    current = PANELS.some((p) => p.id === id) ? id : "hero";
+    current = PANELS.some((p) => p.id === id) ? id : PANELS[0].id;
     history.replaceState(null, "", "#" + current);
     $("#sidebar").classList.remove("open");
     renderNav();
@@ -576,6 +577,206 @@
   }
 
   // ---------- Backup ----------
+  // ---------- Stats ----------
+  let statsDays = 30;
+  const DAY = 864e5;
+  const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+  const fmt = (n) => Number(n).toLocaleString("en-US");
+  const fmtDay = (key, opts = { day: "numeric", month: "short" }) => new Date(key + "T00:00").toLocaleDateString("ar", opts);
+
+  const SOURCES = [
+    [/linkedin|lnkd\.in/, "LinkedIn"], [/google\./, "Google"], [/bing\./, "Bing"], [/duckduckgo/, "DuckDuckGo"],
+    [/(^|\.)t\.co$|twitter|x\.com/, "X (Twitter)"], [/facebook|fb\.(com|me)/, "Facebook"], [/instagram/, "Instagram"],
+    [/whatsapp|wa\.me/, "WhatsApp"], [/t\.me|telegram/, "Telegram"], [/github/, "GitHub"], [/behance/, "Behance"],
+  ];
+  const sourceLabel = (s) => {
+    if (!s) return "مباشر / تطبيق";
+    const hit = SOURCES.find(([re]) => re.test(s));
+    return hit ? hit[1] : s;
+  };
+  const DEVICES = { mobile: "📱 هاتف", desktop: "💻 كمبيوتر", tablet: "📟 جهاز لوحي" };
+  const TZ = {
+    "Europe/Istanbul": "تركيا", "Asia/Riyadh": "السعودية", "Asia/Dubai": "الإمارات", "Asia/Damascus": "سوريا",
+    "Africa/Cairo": "مصر", "Asia/Amman": "الأردن", "Asia/Beirut": "لبنان", "Asia/Baghdad": "العراق",
+    "Asia/Kuwait": "الكويت", "Asia/Qatar": "قطر", "Asia/Bahrain": "البحرين", "Asia/Muscat": "عُمان",
+    "Asia/Aden": "اليمن", "Asia/Gaza": "فلسطين", "Asia/Hebron": "فلسطين", "Africa/Casablanca": "المغرب",
+    "Africa/Algiers": "الجزائر", "Africa/Tunis": "تونس", "Africa/Tripoli": "ليبيا", "Africa/Khartoum": "السودان",
+    "Europe/Berlin": "ألمانيا", "Europe/London": "بريطانيا", "Europe/Paris": "فرنسا", "Europe/Amsterdam": "هولندا",
+    "Europe/Brussels": "بلجيكا", "Europe/Vienna": "النمسا", "Europe/Stockholm": "السويد", "Europe/Oslo": "النرويج",
+    "Europe/Copenhagen": "الدنمارك", "Europe/Zurich": "سويسرا", "Europe/Rome": "إيطاليا", "Europe/Madrid": "إسبانيا",
+    "Europe/Athens": "اليونان", "Europe/Moscow": "روسيا", "Asia/Tehran": "إيران", "Asia/Karachi": "باكستان",
+    "Asia/Kolkata": "الهند", "Asia/Calcutta": "الهند", "America/Toronto": "كندا",
+  };
+  const tzLabel = (tz) => TZ[tz] || (tz.startsWith("America/") ? "أمريكا" : tz ? tz.split("/").pop().replace(/_/g, " ") : "غير معروف");
+
+  function mockVisits(days) {
+    const rows = [], srcs = ["", "", "linkedin.com", "google.com", "cv", "github.com", "t.co"], tzs = ["Europe/Istanbul", "Europe/Istanbul", "Asia/Riyadh", "Europe/Berlin", "Asia/Damascus"];
+    for (let d = 0; d < days; d++) {
+      const n = Math.round(4 + 6 * Math.random() + (d < 7 ? 6 : 0));
+      for (let k = 0; k < n; k++) rows.push({
+        created_at: new Date(Date.now() - d * DAY - Math.random() * DAY * 0.9).toISOString(),
+        visitor: "v" + Math.floor(Math.random() * days * 5), source: srcs[k % srcs.length],
+        device: k % 3 ? "mobile" : "desktop", tz: tzs[k % tzs.length],
+      });
+    }
+    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
+  async function fetchVisits(days) {
+    const since = new Date(Date.now() - (days - 1) * DAY); since.setHours(0, 0, 0, 0);
+    const rows = [];
+    for (let from = 0; from < 50000; from += 1000) {
+      const { data, error } = await sb.from("visits").select("created_at, visitor, source, device, tz")
+        .gte("created_at", since.toISOString()).order("created_at", { ascending: false }).range(from, from + 999);
+      if (error) throw error;
+      rows.push(...data);
+      if (data.length < 1000) break;
+    }
+    const { count, error } = await sb.from("visits").select("id", { count: "exact", head: true });
+    if (error) throw error;
+    return { rows, total: count };
+  }
+
+  async function renderStats(panel) {
+    // الفترة الزمنية — صف واحد فوق كل شيء
+    const filters = h("div", { class: "seg", role: "group", "aria-label": "الفترة" },
+      [7, 30, 90].map((d) => h("button", { type: "button", class: d === statsDays ? "active" : "", "aria-pressed": String(d === statsDays),
+        onclick: () => { statsDays = d; renderPanel(); } }, `آخر ${d} يوماً`)),
+      h("button", { type: "button", class: "icon-btn", title: "تحديث", "aria-label": "تحديث", onclick: () => renderPanel() }, "↻"));
+    const body = h("div", { class: "stats-body loading-data" }, h("p", { class: "empty" }, "جارٍ تحميل الإحصائيات…"));
+    panel.append(filters, body, statsSettingsCard());
+
+    let rows, total;
+    try {
+      if (demo) { rows = mockVisits(statsDays); total = rows.length + 1240; }
+      else ({ rows, total } = await fetchVisits(statsDays));
+    } catch (e) {
+      const missing = /does not exist|Could not find the table|PGRST205|42P01/i.test(e.message || "");
+      body.replaceChildren(h("p", { class: "notice warn" }, missing
+        ? "جدول الزيارات غير موجود بعد. شغّل ملف supabase/visits.sql في SQL Editor على Supabase."
+        : "تعذّر تحميل الإحصائيات: " + friendlyError(e)));
+      return;
+    }
+    if (current !== "stats") return;
+
+    // تجميع البيانات
+    const days = [];
+    for (let i = statsDays - 1; i >= 0; i--) days.push(dayKey(Date.now() - i * DAY));
+    const perDay = Object.fromEntries(days.map((d) => [d, 0]));
+    rows.forEach((r) => { const k = dayKey(r.created_at); if (k in perDay) perDay[k]++; });
+    const count = (key, label) => {
+      const m = new Map();
+      rows.forEach((r) => { const l = label(r[key] || ""); m.set(l, (m.get(l) || 0) + 1); });
+      return [...m].sort((a, b) => b[1] - a[1]);
+    };
+    const unique = new Set(rows.map((r) => r.visitor)).size;
+    const today = perDay[dayKey(Date.now())] || 0;
+
+    body.classList.remove("loading-data");
+    body.replaceChildren(
+      demo ? h("p", { class: "notice warn" }, "الوضع التجريبي: هذه بيانات وهمية لعرض الشكل فقط") : null,
+      h("div", { class: "tiles" },
+        tile(`الزيارات في آخر ${statsDays} يوماً`, fmt(rows.length), true),
+        tile("الزوار (أجهزة مختلفة)", fmt(unique)),
+        tile("زيارات اليوم", fmt(today)),
+        tile("الإجمالي منذ البداية", fmt(total))),
+      card("الزيارات اليومية", "مرّر على أي عمود لرؤية التفاصيل", columnChart(days, perDay)),
+      h("div", { class: "lists" },
+        card("من أين جاء الزوار", "لتمييز رابط معيّن أضف إليه ‎?ref=cv‎ فيظهر هنا باسم cv", barList(count("source", sourceLabel), rows.length)),
+        card("الأجهزة", null, barList(count("device", (d) => DEVICES[d] || d), rows.length)),
+        card("البلدان (تقريبياً)", "حسب المنطقة الزمنية للجهاز", barList(count("tz", tzLabel), rows.length, 8))),
+      card("أحدث الزيارات", null, recentTable(rows.slice(0, 15))));
+  }
+
+  function tile(label, value, hero = false) {
+    return h("div", { class: "tile" + (hero ? " hero" : "") }, h("span", { class: "t-label" }, label), h("b", { class: "t-value" }, value));
+  }
+
+  function columnChart(days, perDay) {
+    const vals = days.map((d) => perDay[d]);
+    const max = Math.max(1, ...vals);
+    const step = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000].find((s) => s * 4 >= max) || Math.ceil(max / 4);
+    const top = step * 4;
+    const ticks = [0, 1, 2, 3, 4].map((i) => i * step);
+
+    const tip = h("div", { class: "c-tip", hidden: true, role: "status" });
+    const showTip = (col, d, v) => {
+      tip.replaceChildren(h("b", {}, fmt(v) + (v === 1 ? " زيارة" : " زيارات")), h("span", {}, fmtDay(d, { weekday: "long", day: "numeric", month: "long" })));
+      tip.hidden = false;
+      const r = col.getBoundingClientRect(), p = plot.getBoundingClientRect();
+      tip.style.left = `${Math.min(Math.max(r.left - p.left + r.width / 2, 60), p.width - 60)}px`;
+      tip.style.top = `calc(${(1 - v / top) * 100}% - 8px)`;
+    };
+    const hideTip = () => (tip.hidden = true);
+
+    const plot = h("div", { class: "c-plot" },
+      ticks.map((t) => h("div", { class: "c-grid", style: `bottom:${(t / top) * 100}%` }, h("span", {}, fmt(t)))),
+      h("div", { class: "c-cols" + (days.length > 45 ? " dense" : "") }, days.map((d, i) => {
+        const v = vals[i];
+        const col = h("div", { class: "c-col", tabindex: 0, "aria-label": `${fmtDay(d)}: ${v}`,
+          onpointerenter: () => showTip(col, d, v), onpointerleave: hideTip,
+          onfocus: () => showTip(col, d, v), onblur: hideTip },
+          h("i", { style: `height:${(v / top) * 100}%` + (v ? "" : ";display:none") }));
+        return col;
+      })),
+      tip);
+    const mid = Math.floor(days.length / 2);
+    const xAxis = h("div", { class: "c-x" }, [0, mid, days.length - 1].map((i) => h("span", {}, fmtDay(days[i]))));
+
+    const table = h("table", { class: "data-table", hidden: true },
+      h("thead", {}, h("tr", {}, h("th", {}, "اليوم"), h("th", {}, "الزيارات"))),
+      h("tbody", {}, [...days].reverse().map((d) => h("tr", {}, h("td", {}, fmtDay(d, { weekday: "short", day: "numeric", month: "short" })), h("td", {}, fmt(perDay[d]))))));
+    const toggle = h("button", { type: "button", class: "btn btn-ghost sm", onclick: () => {
+      table.hidden = !table.hidden;
+      chart.hidden = !table.hidden;
+      toggle.textContent = table.hidden ? "عرض كجدول" : "عرض كرسم بياني";
+    } }, "عرض كجدول");
+    const chart = h("div", { class: "c-chart", dir: "ltr" }, plot, xAxis);
+    return h("div", {}, chart, table, h("div", { class: "c-foot" }, toggle));
+  }
+
+  function barList(entries, totalRows, limit = 7) {
+    if (!entries.length) return h("p", { class: "empty" }, "لا توجد بيانات بعد");
+    let list = entries;
+    if (entries.length > limit) {
+      const rest = entries.slice(limit - 1).reduce((s, [, n]) => s + n, 0);
+      list = [...entries.slice(0, limit - 1), ["أخرى", rest]];
+    }
+    const max = list[0][1];
+    return h("ul", { class: "bar-list" }, list.map(([label, n]) =>
+      h("li", {},
+        h("span", { class: "bl-label" }, label),
+        h("span", { class: "bl-track" }, h("i", { style: `width:${(n / max) * 100}%` })),
+        h("span", { class: "bl-val" }, fmt(n), h("small", {}, ` ${Math.round((n / totalRows) * 100)}%`)))));
+  }
+
+  function recentTable(rows) {
+    if (!rows.length) return h("p", { class: "empty" }, "لا توجد زيارات بعد");
+    return h("div", { class: "table-wrap" }, h("table", { class: "data-table" },
+      h("thead", {}, h("tr", {}, ["الوقت", "المصدر", "الجهاز", "البلد"].map((t) => h("th", {}, t)))),
+      h("tbody", {}, rows.map((r) => h("tr", {},
+        h("td", {}, new Date(r.created_at).toLocaleString("ar", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })),
+        h("td", {}, sourceLabel(r.source)), h("td", {}, DEVICES[r.device] || r.device), h("td", {}, tzLabel(r.tz)))))));
+  }
+
+  function statsSettingsCard() {
+    const status = h("span", { class: "dev-status" });
+    const btn = h("button", { type: "button", class: "btn btn-ghost sm" });
+    const sync = () => {
+      const ex = SiteData.isExcluded();
+      status.textContent = ex ? "✓ زياراتك من هذا الجهاز لا تُحسب" : "⚠ زياراتك من هذا الجهاز تُحسب";
+      status.classList.toggle("warn", !ex);
+      btn.textContent = ex ? "احسب زيارات هذا الجهاز" : "لا تحسب زيارات هذا الجهاز";
+    };
+    btn.addEventListener("click", () => { SiteData.setExcluded(!SiteData.isExcluded()); sync(); });
+    sync();
+    return card("إعدادات العداد", "لاستثناء هاتفك: افتح موقعك عليه مرة واحدة مع ‎?notrack=1 في نهاية الرابط، أو سجّل الدخول إلى اللوحة منه",
+      h("div", { class: "grid" },
+        renderField({ label: "إظهار عدد الزيارات أسفل الموقع للزوار", type: "checkbox" }, "visitCounter.show"),
+        renderField({ label: "النص بعد الرقم", hint: "مثال: زيارة" }, "visitCounter.label"),
+        h("div", { class: "full dev-row" }, status, btn)));
+  }
+
   function renderBackup(panel) {
     const importInput = h("input", { type: "file", accept: "application/json,.json", hidden: true, onchange: async (e) => {
       const f = e.target.files[0];
@@ -638,6 +839,8 @@
   const show = (id) => ["setupView", "loginView", "appView"].forEach((v) => ($("#" + v).hidden = v !== id));
 
   async function openApp(email) {
+    // زياراتك أنت من هذا الجهاز لا تُحسب في الإحصائيات
+    if (!demo) SiteData.setExcluded(true);
     content = await SiteData.loadContent();
     savedJson = JSON.stringify(content);
     gallery = demo ? [] : await SiteData.loadGallery();

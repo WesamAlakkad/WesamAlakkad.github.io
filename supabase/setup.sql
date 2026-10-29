@@ -73,3 +73,5 @@ create policy "works admin update" on storage.objects
 drop policy if exists "works admin delete" on storage.objects;
 create policy "works admin delete" on storage.objects
   for delete to authenticated using (bucket_id = 'works' and public.is_admin());
+
+-- ---------- عدّاد الزيارات: انظر supabase/visits.sql ----------

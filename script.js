@@ -46,6 +46,18 @@
   render(C, gallery);
   document.body.classList.remove("loading");
   initInteractions(C, gallery);
+  showVisitCount(C);
+  SiteData.trackVisit();
+
+  async function showVisitCount(C) {
+    const vc = C.visitCounter || {};
+    if (!vc.show) return;
+    const n = await SiteData.visitCount();
+    if (n == null) return;
+    const el = $("#visitCount");
+    el.textContent = ` · ${Number(n).toLocaleString("en-US")} ${vc.label || ""}`;
+    el.hidden = false;
+  }
 
   function render(C, gallery) {
     document.title = C.meta.title;
