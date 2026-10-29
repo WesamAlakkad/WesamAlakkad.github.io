@@ -107,6 +107,14 @@
           { key: "hero.showAvailable", label: "إظهار شارة «متاح للعمل»", type: "checkbox" },
           { key: "hero.availableText", label: "نص الشارة" },
         ]},
+        { title: "بطاقة الكود", desc: "تظهر بجانب صورتك على الكمبيوتر. عند كل زيارة يظهر واحد من هذه عشوائياً، ويُلوَّن تلقائياً", fields: [
+          { key: "hero.codeSnippets", type: "list", newItem: () => ({ code: "# your joke here" }),
+            titleOf: (it) => (it.code || "").split("\n")[0],
+            fields: [
+              { key: "code", label: "الكود", type: "textarea", full: true, ltr: true, mono: true, rows: 4,
+                hint: "3 أسطر وأقل من 40 حرفاً في السطر حتى لا تغطي الصورة. التعليقات تبدأ بـ #" },
+            ]},
+        ]},
         { title: "الصورة والملفات", fields: [
           { key: "hero.avatarUrl", label: "الصورة الشخصية", type: "image", folder: "profile", full: true, hint: "يفضّل صورة مربعة. إن تُركت فارغة تظهر الأحرف الأولى" },
           { key: "hero.initials", label: "الأحرف الأولى (بديل الصورة)" },
@@ -280,8 +288,9 @@
         opts.map(([v, l]) => h("option", { value: v, selected: v === value }, l))));
     }
     if (["textarea", "lines", "paras"].includes(def.type)) {
-      const rows = def.type === "paras" ? 8 : def.type === "lines" ? 4 : 3;
-      return label(h("textarea", { rows, value: displayValue(def, value), oninput: (e) => update(e.target) }));
+      const rows = def.rows || (def.type === "paras" ? 8 : def.type === "lines" ? 4 : 3);
+      return label(h("textarea", { rows, value: displayValue(def, value), dir: def.ltr ? "ltr" : null, class: def.mono ? "mono" : null,
+        spellcheck: def.mono ? false : null, oninput: (e) => update(e.target) }));
     }
     if (def.type === "image" || def.type === "file") return label(renderUpload(def, path, value, update));
 
@@ -332,7 +341,7 @@
       const arr = getPath(content, path) || [];
       const list = h("div", { class: "list" });
       arr.forEach((item, i) => {
-        const titleOf = () => (def.titleKey && item[def.titleKey]) || `عنصر ${i + 1}`;
+        const titleOf = () => (def.titleOf ? def.titleOf(item) : def.titleKey && item[def.titleKey]) || `عنصر ${i + 1}`;
         const titleEl = h("span", { class: "t" }, titleOf());
         const move = (d) => {
           const j = i + d;

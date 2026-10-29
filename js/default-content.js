@@ -17,6 +17,13 @@ window.DEFAULT_CONTENT = {
     avatarUrl: "",
     cvUrl: "assets/Wesam_Alakkad_CV_Arabic.pdf",
     chips: ["PyTorch", "Data Science", "Branding"],
+    // بطاقة الكود بجانب الصورة: يظهر واحد منها عشوائياً عند كل زيارة
+    codeSnippets: [
+      { code: 'wesam = Engineer() + Designer()\nwesam.fit(ideas, epochs=∞, coffee=True)\n# loss ↓   creativity ↑' },
+      { code: '>>> wesam.predict("your project")\n\'success\'  # confidence: 99.9%\n# the 0.1% = coffee ran out ☕' },
+      { code: 'while logo != "perfect":\n    logo = redesign(logo)\n# client: "make it pop" 😐' },
+      { code: '$ git commit -m "final"\n$ git commit -m "final_v2"\n$ git commit -m "final_FINAL_real"' },
+    ],
   },
   socials: {
     email: "v.akkad2000@gmail.com",

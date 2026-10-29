@@ -303,3 +303,6 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .tile.hero { grid-column: 1 / -1; }
   .c-plot { height: 170px; }
 }
+
+/* محرر الكود */
+textarea.mono { font: 0.88rem/1.7 var(--mono); text-align: left; white-space: pre; overflow-x: auto; tab-size: 4; }

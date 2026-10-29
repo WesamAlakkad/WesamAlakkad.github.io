@@ -7,6 +7,29 @@
     tags.length ? `<div class="tags">${tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : "";
   const bulletsHtml = (items = []) => (items.length ? `<ul>${items.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>` : "");
 
+  // تلوين بسيط لبطاقة الكود: تعليقات، نصوص، رموز الأوامر، دوال، كلمات محجوزة، والمتغير قبل =
+  const KEYWORDS = new Set(["while", "for", "in", "if", "else", "elif", "try", "except", "finally", "def", "class", "return",
+    "import", "from", "as", "not", "and", "or", "True", "False", "None", "val", "var", "fun", "const", "let", "new"]);
+  const TOKEN = /(#.*$|\/\/.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(^\s*(?:>>>|\$)(?=\s|$))|([A-Za-z_]\w*)(?=\s*\()|(\b\d+(?:\.\d+)?\b)|([A-Za-z_]\w*)/g;
+  const highlightCode = (code) => String(code).split("\n").map((line) => {
+    let out = "", last = 0, first = true;
+    for (const m of line.matchAll(TOKEN)) {
+      out += esc(line.slice(last, m.index));
+      const [t, comment, str, prompt, fn, num, word] = m;
+      const span = (cls) => `<span class="${cls}">${esc(t)}</span>`;
+      if (comment) out += span("c");
+      else if (str) out += span("s");
+      else if (prompt) out += span("p");
+      else if (fn) out += span("f");
+      else if (num) out += span("n");
+      else if (KEYWORDS.has(word) || (first && /^\s*=(?!=)/.test(line.slice(m.index + t.length)))) out += span("k");
+      else out += esc(t);
+      if (!prompt) first = false;
+      last = m.index + t.length;
+    }
+    return out + esc(line.slice(last));
+  }).join("\n");
+
   const ICONS = {
     linkedin: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20.4 20.5h-3.6v-5.6c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9v5.7H9.3V9h3.4v1.6h.1c.5-.9 1.6-1.8 3.4-1.8 3.6 0 4.3 2.4 4.3 5.5v6.2zM5.3 7.4a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2zM7.1 20.5H3.6V9h3.5v11.5zM22.2 0H1.8C.8 0 0 .8 0 1.7v20.6c0 .9.8 1.7 1.8 1.7h20.4c1 0 1.8-.8 1.8-1.7V1.7C24 .8 23.2 0 22.2 0z"/></svg>',
     email: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/></svg>',
@@ -74,6 +97,11 @@
     if (C.hero.avatarUrl) {
       $("#avatar").innerHTML = `<img src="${esc(safeUrl(C.hero.avatarUrl))}" alt="${esc(C.hero.name)}" />`;
     }
+    const snippets = (C.hero.codeSnippets || []).map((s) => (s && s.code) || "").filter((s) => s.trim());
+    const codeCard = $("#codeCard");
+    codeCard.hidden = !snippets.length;
+    if (snippets.length) codeCard.querySelector("code").innerHTML = highlightCode(snippets[Math.floor(Math.random() * snippets.length)]);
+
     document.querySelectorAll(".chip").forEach((el, i) => {
       el.textContent = C.hero.chips[i] || "";
       el.hidden = !C.hero.chips[i];

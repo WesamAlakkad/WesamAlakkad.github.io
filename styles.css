@@ -203,6 +203,8 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 .code-card .k { color: var(--accent); } .code-card .f { color: var(--accent-2); }
 .code-card .s { color: #f59e0b; } .code-card .c { color: var(--muted); opacity: 0.7; }
+.code-card .n { color: #f97316; } .code-card .p { color: var(--muted); user-select: none; }
+.code-card code { white-space: pre; }
 
 /* ========== Stats ========== */
 .stats {
