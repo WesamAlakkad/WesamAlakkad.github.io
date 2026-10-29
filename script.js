@@ -82,7 +82,7 @@
 
     // Stats
     $("#stats").innerHTML = C.stats
-      .map((s) => `<div class="stat reveal"><span class="stat-val" dir="ltr"><span class="num" data-count="${+s.value || 0}">0</span>${s.plus ? '<span class="plus">+</span>' : ""}</span><p>${esc(s.label)}</p></div>`)
+      .map((s) => `<div class="stat reveal"><span class="sr-only">${+s.value || 0}${s.plus ? "+" : ""}</span><span class="stat-val" dir="ltr" aria-hidden="true"><span class="num" data-count="${+s.value || 0}">0</span>${s.plus ? '<span class="plus">+</span>' : ""}</span><p>${esc(s.label)}</p></div>`)
       .join("");
     $("#stats").hidden = !C.stats.length;
 
@@ -119,8 +119,8 @@
     // Projects
     const usedCats = C.projectCategories.filter((c) => C.projects.some((p) => p.category === c.key));
     $("#projectFilters").innerHTML =
-      `<button class="filter active" data-filter="all">الكل</button>` +
-      usedCats.map((c) => `<button class="filter" data-filter="${esc(c.key)}">${esc(c.label)}</button>`).join("");
+      `<button class="filter active" data-filter="all" aria-pressed="true">الكل</button>` +
+      usedCats.map((c) => `<button class="filter" data-filter="${esc(c.key)}" aria-pressed="false">${esc(c.label)}</button>`).join("");
     $("#projectFilters").hidden = usedCats.length < 2;
     $("#projectsGrid").innerHTML = C.projects
       .map((p, i) => {
@@ -138,6 +138,7 @@
         </div>
         <h3>${esc(p.title)}</h3>
         ${p.date ? `<p class="p-date">${esc(p.date)}</p>` : ""}
+        ${(p.results || []).length ? `<ul class="p-results" aria-label="النتائج">${p.results.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
         ${bulletsHtml(p.bullets)}${tagsHtml(p.tags)}
         ${p.link ? `<a class="p-link" href="${esc(safeUrl(p.link))}" target="_blank" rel="noopener">عرض المشروع ←</a>` : ""}
       </article>`;
@@ -151,8 +152,8 @@
     if (hasGallery) {
       const cats = [...new Set(gallery.map((g) => g.category).filter(Boolean))];
       $("#galleryFilters").innerHTML =
-        `<button class="filter active" data-filter="all">الكل</button>` +
-        cats.map((c) => `<button class="filter" data-filter="${esc(c)}">${esc(c)}</button>`).join("");
+        `<button class="filter active" data-filter="all" aria-pressed="true">الكل</button>` +
+        cats.map((c) => `<button class="filter" data-filter="${esc(c)}" aria-pressed="false">${esc(c)}</button>`).join("");
       $("#galleryFilters").hidden = cats.length < 2;
       $("#galleryGrid").innerHTML = gallery
         .map((g, i) => `
@@ -271,7 +272,10 @@
       bar.addEventListener("click", (e) => {
         const btn = e.target.closest(".filter");
         if (!btn) return;
-        bar.querySelectorAll(".filter").forEach((b) => b.classList.toggle("active", b === btn));
+        bar.querySelectorAll(".filter").forEach((b) => {
+          b.classList.toggle("active", b === btn);
+          b.setAttribute("aria-pressed", b === btn);
+        });
         const f = btn.dataset.filter;
         document.querySelectorAll(items).forEach((p) => p.classList.toggle("hide", f !== "all" && p.dataset.cat !== f));
       });
@@ -289,7 +293,7 @@
 
     // Lightbox (مشترك بين معرض الأعمال وصور المشاريع)
     const lb = $("#lightbox");
-    let lbItems = [], cur = 0;
+    let lbItems = [], cur = 0, opener = null;
     const show = (i) => {
       cur = i;
       const it = lbItems[i];
@@ -301,12 +305,19 @@
       lb.hidden = false;
       document.body.style.overflow = "hidden";
     };
+    // عند الفتح ينتقل التركيز إلى زر الإغلاق، وعند الإغلاق يعود إلى العنصر الذي فتحه (لمستخدمي لوحة المفاتيح وقارئات الشاشة)
     const openLightbox = (items, i = 0) => {
       if (!items.length) return;
       lbItems = items;
+      opener = document.activeElement;
       show(Math.max(0, i));
+      $("#lbClose").focus();
     };
-    const close = () => { lb.hidden = true; document.body.style.overflow = ""; };
+    const close = () => {
+      lb.hidden = true;
+      document.body.style.overflow = "";
+      opener?.focus?.();
+    };
     const step = (d) => show((cur + d + lbItems.length) % lbItems.length);
 
     const openWork = (w) => {
@@ -342,6 +353,13 @@
     document.addEventListener("keydown", (e) => {
       if (lb.hidden) return;
       if (e.key === "Escape") close();
+      // إبقاء التنقل بـ Tab داخل نافذة العرض
+      if (e.key === "Tab") {
+        const f = [...lb.querySelectorAll("button")].filter((b) => !b.hidden);
+        const idx = f.indexOf(document.activeElement);
+        e.preventDefault();
+        f[(idx + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+      }
       // RTL: السهم الأيسر = التالي
       if (e.key === "ArrowLeft") step(1);
       if (e.key === "ArrowRight") step(-1);

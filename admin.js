@@ -120,7 +120,7 @@
               { key: "label", label: "الوصف" },
             ]},
         ]},
-        { title: "بيانات محركات البحث (SEO)", fields: [
+        { title: "عنوان التبويب ووصف الصفحة", desc: "يغيّر عنوان تبويب المتصفح فقط. صورة ونص المعاينة عند مشاركة الرابط ثابتان في ملف index.html", fields: [
           { key: "meta.title", label: "عنوان الصفحة", full: true },
           { key: "meta.description", label: "وصف الصفحة", type: "textarea", full: true },
         ]},
@@ -169,7 +169,7 @@
       cards: [
         { title: "المشاريع", fields: [
           { key: "projects", type: "list", titleKey: "title",
-            newItem: () => ({ type: "", title: "مشروع جديد", date: "", category: (content.projectCategories[0] || {}).key || "", bullets: [], tags: [], link: "", images: [] }),
+            newItem: () => ({ type: "", title: "مشروع جديد", date: "", category: (content.projectCategories[0] || {}).key || "", bullets: [], tags: [], results: [], link: "", images: [] }),
             fields: [
               { key: "title", label: "عنوان المشروع", full: true },
               { key: "images", label: "صور المشروع", type: "images", folder: "projects", hint: "الصورة الأولى هي غلاف المشروع — استخدم الأسهم لتغيير الترتيب" },
@@ -177,6 +177,7 @@
               { key: "category", label: "التصنيف", type: "select", options: catOptions },
               { key: "date", label: "الفترة" },
               { key: "link", label: "رابط (اختياري)", type: "url", hint: "GitHub أو عرض حي" },
+              { key: "results", label: "النتائج والأرقام", type: "tags", full: true, hint: "تظهر بشكل بارز أعلى المشروع. مثال: Accuracy 94%، F1 0.91، 12 عميلاً — افصل بفاصلة" },
               { key: "tags", label: "التقنيات", type: "tags", full: true },
               { key: "bullets", label: "التفاصيل", type: "lines", full: true, hint: "نقطة في كل سطر" },
             ]},
