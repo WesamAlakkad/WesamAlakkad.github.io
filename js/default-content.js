@@ -2,7 +2,7 @@
 // النص يدعم: **غامق** و ==مُظلَّل==
 window.DEFAULT_CONTENT = {
   meta: {
-    title: "Wesam Alakkad - Computer Engineering",
+    title: "Wesam Alakkad - Computer Engineer",
     description: "مهندس حاسوب يجمع بين البرمجة والذكاء الاصطناعي وعلوم البيانات، والتصميم، ليحوّل الأفكار إلى تجارب رقمية.",
   },
   hero: {
